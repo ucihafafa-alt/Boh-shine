@@ -1,13 +1,60 @@
 (function(){
 'use strict';
-const APP_VERSION='3.2.0-working';
-const DB='bukhTaavarProV32';
+const APP_VERSION='4.0.0-firebase-realtime';
+const DB='bukhTaavarProV40';
+const CURRENT_USER_KEY=DB+'_currentUser';
+const REMOTE_URL='https://boh-taavar-pro-default-rtdb.firebaseio.com/state.json';
+let remoteReady=false;
+let remoteBusy=false;
+let remoteError='';
 const provinces=['Архангай','Баян-Өлгий','Баянхонгор','Булган','Говь-Алтай','Говьсүмбэр','Дархан-Уул','Дорноговь','Дорнод','Дундговь','Завхан','Орхон','Өвөрхангай','Өмнөговь','Сүхбаатар','Сэлэнгэ','Төв','Увс','Ховд','Хөвсгөл','Хэнтий','Улаанбаатар'];
-const defaultState={currentUser:null,closed:false,activeTournament:'naadam2026',adminPin:'1234',users:[],events:[{id:'naadam2026',name:'Улсын баяр наадам 2026',type:'Улсын наадам',date:'2026-07-11T09:00:00',status:'Таавар авч байна',location:'Төв цэнгэлдэх хүрээлэн'}],wrestlers:[{id:'w1',name:'О.Хангай',rank:'Улсын аварга',province:'Ховд',photo:''},{id:'w2',name:'Б.Орхонбаяр',rank:'Улсын арслан',province:'Сэлэнгэ',photo:''},{id:'w3',name:'П.Бүрэнтөгс',rank:'Улсын аварга',province:'Увс',photo:''},{id:'w4',name:'Н.Батсуурь',rank:'Дархан аварга',province:'Увс',photo:''},{id:'w5',name:'Ц.Содномдорж',rank:'Улсын арслан',province:'Хөвсгөл',photo:''},{id:'w6',name:'Р.Пүрэвдагва',rank:'Улсын арслан',province:'Архангай',photo:''},{id:'w7',name:'Б.Гончигдамба',rank:'Улсын гарьд',province:'Завхан',photo:''},{id:'w8',name:'Д.Анар',rank:'Улсын начин',province:'Дорнод',photo:''}],predictions:[],results:null,notifications:[{title:'V3.2 ажиллах хувилбар',body:'JS замын алдааг арилгаж нэг app.js болголоо.',at:new Date().toISOString()}],settings:{points:{champion:100,runner:70,semi:40,quarter:20,province:30,title:30,combo:120}}};
+const defaultState={closed:false,activeTournament:'naadam2026',adminPin:'1234',users:[],events:[{id:'naadam2026',name:'Улсын баяр наадам 2026',type:'Улсын наадам',date:'2026-07-11T09:00:00',status:'Таавар авч байна',location:'Төв цэнгэлдэх хүрээлэн'}],wrestlers:[{id:'w1',name:'О.Хангай',rank:'Улсын аварга',province:'Ховд',photo:''},{id:'w2',name:'Б.Орхонбаяр',rank:'Улсын арслан',province:'Сэлэнгэ',photo:''},{id:'w3',name:'П.Бүрэнтөгс',rank:'Улсын аварга',province:'Увс',photo:''},{id:'w4',name:'Н.Батсуурь',rank:'Дархан аварга',province:'Увс',photo:''},{id:'w5',name:'Ц.Содномдорж',rank:'Улсын арслан',province:'Хөвсгөл',photo:''},{id:'w6',name:'Р.Пүрэвдагва',rank:'Улсын арслан',province:'Архангай',photo:''},{id:'w7',name:'Б.Гончигдамба',rank:'Улсын гарьд',province:'Завхан',photo:''},{id:'w8',name:'Д.Анар',rank:'Улсын начин',province:'Дорнод',photo:''}],predictions:[],results:null,notifications:[{title:'V4 Firebase хувилбар',body:'Realtime Database холболт нэмэгдлээ.',at:new Date().toISOString()}],settings:{points:{champion:100,runner:70,semi:40,quarter:20,province:30,title:30,combo:120}}};
 let S=load(); let tab='home';
 function clone(o){return JSON.parse(JSON.stringify(o))}
-function load(){try{let s=localStorage.getItem(DB);return s?JSON.parse(s):clone(defaultState)}catch(e){return clone(defaultState)}}
-function save(){normalizeState();localStorage.setItem(DB,JSON.stringify(S))}
+function load(){
+ try{
+  let s=localStorage.getItem(DB);
+  let state=s?JSON.parse(s):clone(defaultState);
+  state.currentUser=localStorage.getItem(CURRENT_USER_KEY)||null;
+  return state;
+ }catch(e){let st=clone(defaultState);st.currentUser=null;return st}
+}
+function remoteState(){let x=clone(S);delete x.currentUser;return x}
+function save(){
+ normalizeState();
+ try{localStorage.setItem(DB,JSON.stringify(remoteState())); if(S.currentUser)localStorage.setItem(CURRENT_USER_KEY,S.currentUser); else localStorage.removeItem(CURRENT_USER_KEY)}catch(e){}
+ pushRemote();
+}
+async function pushRemote(){
+ if(remoteBusy)return;
+ remoteBusy=true;
+ try{
+  await fetch(REMOTE_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(remoteState())});
+  remoteReady=true;remoteError='';
+ }catch(e){remoteError='Firebase хадгалалт амжилтгүй: '+e.message}
+ finally{remoteBusy=false}
+}
+async function pullRemote(){
+ try{
+  const res=await fetch(REMOTE_URL+'?t='+Date.now(),{cache:'no-store'});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  const current=S.currentUser||localStorage.getItem(CURRENT_USER_KEY)||null;
+  if(data && typeof data==='object'){
+   S=data; S.currentUser=current; normalizeState();
+   try{localStorage.setItem(DB,JSON.stringify(remoteState()))}catch(e){}
+  }else{
+   normalizeState(); await pushRemote();
+  }
+  remoteReady=true;remoteError='';
+ }catch(e){remoteError='Firebase уншилт амжилтгүй: '+e.message; normalizeState()}
+}
+async function initApp(){
+ document.getElementById('app').innerHTML='<div class="wrap"><div class="card"><h2>Firebase холбогдож байна...</h2><p class="muted">Түр хүлээнэ үү.</p></div></div>';
+ await pullRemote();
+ render();
+ setInterval(async()=>{ if(!remoteBusy){ await pullRemote(); if(tab==='home'||tab==='board')render(); } },5000);
+}
 function normalizeState(){
  if(!S || typeof S!=='object') S=clone(defaultState);
  if(!S.events)S.events=clone(defaultState.events); if(!S.wrestlers)S.wrestlers=clone(defaultState.wrestlers); if(!S.predictions)S.predictions=[]; if(!S.users)S.users=[]; if(!S.notifications)S.notifications=[]; if(!S.settings)S.settings=clone(defaultState.settings); if(!S.settings.points)S.settings.points=clone(defaultState.settings.points); if(!S.adminPin)S.adminPin='1234'; if(!S.activeTournament)S.activeTournament=S.events[0]?.id||'naadam2026';
@@ -32,13 +79,13 @@ function limitChecks(name,limit){let xs=$all(`input[name=${name}]:checked`);if(x
 function nav(){let items=[['home','Нүүр'],['predict','Таавар'],['mine','Минийх'],['board','Чансаа'],['profile','Профайл'],['admin','Админ']];return `<div class="tabs">${items.map(i=>`<button class="${tab===i[0]?'active':''}" onclick="BTP.setTab('${i[0]}')">${i[1]}</button>`).join('')}</div>`}
 function setTab(t){tab=t;render()}
 function screen(){if(tab==='home')return home();if(tab==='predict')return predict();if(tab==='mine')return mine();if(tab==='board')return board();if(tab==='profile')return profile();if(tab==='admin')return admin();return home()}
-function render(){try{normalizeState();document.getElementById('app').innerHTML=`<div class="wrap"><div class="topbar"><b>Бөх Таавар Pro</b><span class="muted small">v${APP_VERSION}</span></div>${screen()}<div class="version">${APP_VERSION}</div></div>${nav()}`;}catch(e){document.getElementById('app').innerHTML=`<div class="wrap"><div class="card error"><h2>JS алдаа</h2>${String(e.stack||e)}</div></div>`;console.error(e)}}
-function authBox(){let u=me(); if(u)return `<div class="card"><div class="row space"><div class="row">${avatarHtml(u)}<div><b>${u.name}</b><div class="muted small">${u.phone} · Level ${u.level} · ${u.xp} XP</div></div></div><button class="secondary" onclick="BTP.logout()">Гарах</button></div></div>`;return `<div class="card"><h2>Бүртгүүлэх / Нэвтрэх</h2><p class="muted">Эхний хувилбар localStorage дээр ажиллана. Дараагийн шатанд Firebase OTP холбоно.</p><div class="grid"><div class="span6"><label>Нэр</label><input id="name" placeholder="Нэр"></div><div class="span6"><label>Утас</label><input id="phone" placeholder="Утасны дугаар"></div><div class="span6"><label>Аймаг</label><select id="province">${provinceOptions()}</select></div><div class="span6"><label>Нас</label><input id="age" type="number" placeholder="Нас"></div><div class="span12"><button onclick="BTP.login()">Нэвтрэх / бүртгүүлэх</button></div></div></div>`}
+function render(){try{normalizeState();document.getElementById('app').innerHTML=`<div class="wrap"><div class="topbar"><b>Бөх Таавар Pro</b><span class="muted small">v${APP_VERSION} · ${remoteReady?'Firebase':'offline'}${remoteError?' ⚠️':''}</span></div>${screen()}<div class="version">${APP_VERSION}</div></div>${nav()}`;}catch(e){document.getElementById('app').innerHTML=`<div class="wrap"><div class="card error"><h2>JS алдаа</h2>${String(e.stack||e)}</div></div>`;console.error(e)}}
+function authBox(){let u=me(); if(u)return `<div class="card"><div class="row space"><div class="row">${avatarHtml(u)}<div><b>${u.name}</b><div class="muted small">${u.phone} · Level ${u.level} · ${u.xp} XP</div></div></div><button class="secondary" onclick="BTP.logout()">Гарах</button></div></div>`;return `<div class="card"><h2>Бүртгүүлэх / Нэвтрэх</h2><p class="muted">Firebase Realtime Database дээр хадгална. Утасны OTP дараагийн шатанд орно.</p><div class="grid"><div class="span6"><label>Нэр</label><input id="name" placeholder="Нэр"></div><div class="span6"><label>Утас</label><input id="phone" placeholder="Утасны дугаар"></div><div class="span6"><label>Аймаг</label><select id="province">${provinceOptions()}</select></div><div class="span6"><label>Нас</label><input id="age" type="number" placeholder="Нас"></div><div class="span12"><button onclick="BTP.login()">Нэвтрэх / бүртгүүлэх</button></div></div></div>`}
 function login(){let name=$('#name').value.trim(),phone=$('#phone').value.trim();if(!name||!phone)return toast('Нэр, утсаа оруулна уу');let u=S.users.find(x=>x.phone===phone);if(!u){u={id:uid(),name,phone,province:$('#province').value,age:$('#age').value,avatar:'',score:0,xp:0,level:1,medals:['Шинэ гишүүн'],totalPredictions:0,correctPredictions:0,createdAt:new Date().toISOString()};S.users.push(u)}S.currentUser=u.id;save();toast('Амжилттай нэвтэрлээ');render()}
-function logout(){S.currentUser=null;save();render()}
+function logout(){S.currentUser=null;try{localStorage.removeItem(CURRENT_USER_KEY)}catch(e){};save();render()}
 function countdownHtml(){let e=currentEvent();let target=new Date(e?.date||Date.now()+86400000).getTime();let diff=Math.max(0,target-Date.now());let d=Math.floor(diff/86400000),h=Math.floor(diff/3600000)%24,m=Math.floor(diff/60000)%60,s=Math.floor(diff/1000)%60;return `<div class="countdown"><div class="timebox"><b>${d}</b><span>өдөр</span></div><div class="timebox"><b>${h}</b><span>цаг</span></div><div class="timebox"><b>${m}</b><span>мин</span></div><div class="timebox"><b>${s}</b><span>сек</span></div></div>`}
 function topUsers(n=5){return [...S.users].sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,n).map((u,i)=>`<div class="row space"><span>${i+1}. ${u.name}</span><b>${u.score||0}</b></div>`).join('')||'<p class="muted">Одоогоор оноо алга.</p>'}
-function home(){let e=currentEvent();return `<div class="hero"><h1>Бөх Таавар Pro</h1><p class="muted">Линкээр ашиглах Монгол бөхийн оноотой тааврын PWA. Бодит мөнгөний бооцоо биш.</p>${authBox()}<h2>${e?.name||'Наадам'}</h2><p class="muted">${e?.location||''} · ${e?.status||''}</p>${countdownHtml()}<br><button onclick="BTP.setTab('predict')">Таавар өгөх</button></div><h2>Системийн төлөв</h2><div class="grid"><div class="card span3"><div class="score">${S.users.length}</div><b>Хэрэглэгч</b></div><div class="card span3"><div class="score">${S.predictions.length}</div><b>Таавар</b></div><div class="card span3"><div class="score">${S.events.length}</div><b>Наадам</b></div><div class="card span3"><div class="score">${S.closed?'Хаалттай':'Нээлттэй'}</div><b>Төлөв</b></div><div class="card span6"><h2>ТОП таамаглагч</h2>${topUsers(5)}</div><div class="card span6"><h2>Мэдэгдэл</h2>${S.notifications.slice(-4).reverse().map(n=>`<p><b>${n.title}</b><br><span class="muted small">${n.body}</span></p>`).join('')||'<p class="muted">Мэдэгдэл алга.</p>'}</div></div>`}
+function home(){let e=currentEvent();return `<div class="hero"><h1>Бөх Таавар Pro</h1><p class="muted">Firebase-тэй холбогдсон Монгол бөхийн оноотой тааврын PWA. Бодит мөнгөний бооцоо биш.</p>${authBox()}<h2>${e?.name||'Наадам'}</h2><p class="muted">${e?.location||''} · ${e?.status||''}</p>${countdownHtml()}<br><button onclick="BTP.setTab('predict')">Таавар өгөх</button></div><h2>Системийн төлөв</h2><div class="grid"><div class="card span3"><div class="score">${S.users.length}</div><b>Хэрэглэгч</b></div><div class="card span3"><div class="score">${S.predictions.length}</div><b>Таавар</b></div><div class="card span3"><div class="score">${S.events.length}</div><b>Наадам</b></div><div class="card span3"><div class="score">${S.closed?'Хаалттай':'Нээлттэй'}</div><b>Төлөв</b></div><div class="card span6"><h2>ТОП таамаглагч</h2>${topUsers(5)}</div><div class="card span6"><h2>Мэдэгдэл</h2>${S.notifications.slice(-4).reverse().map(n=>`<p><b>${n.title}</b><br><span class="muted small">${n.body}</span></p>`).join('')||'<p class="muted">Мэдэгдэл алга.</p>'}</div></div>`}
 function predict(){if(!me())return authBox();let p=S.predictions.find(x=>x.userId===S.currentUser&&x.eventId===S.activeTournament)||{};return `<h2>Таавар өгөх</h2>${S.closed?'<div class="notice">Таавар хаагдсан байна.</div>':''}<div class="grid"><div class="card span6"><label>Наадам</label><select id="eventSel" onchange="BTP.changeEvent(this.value)">${S.events.map(e=>`<option value="${e.id}" ${S.activeTournament===e.id?'selected':''}>${e.name}</option>`).join('')}</select><br><br><label>Түрүүлэх бөх</label><select id="champion">${wrestlerOptions(p.champion)}</select><br><br><label>Үзүүрлэх бөх</label><select id="runner">${wrestlerOptions(p.runner)}</select><br><br><label>Аль аймгийн бөх түрүүлэх вэ?</label><select id="province">${provinceOptions(p.province)}</select><br><br><label>Аль цолны бөх шөвгөрөх вэ?</label><select id="title"><option ${p.title==='Аварга'?'selected':''}>Аварга</option><option ${p.title==='Арслан'?'selected':''}>Арслан</option><option ${p.title==='Заан'?'selected':''}>Заан</option><option ${p.title==='Начин'?'selected':''}>Начин</option><option ${p.title==='Аймгийн цолтон'?'selected':''}>Аймгийн цолтон</option></select></div><div class="card span6"><b>Шөвгийн 4</b>${multi('semi',p.semi||[],4)}<br><b>Шөвгийн 8</b>${multi('quarter',p.quarter||[],8)}</div><div class="span12"><button ${S.closed?'disabled':''} onclick="BTP.savePrediction()">Таавар хадгалах</button></div></div>`}
 function changeEvent(v){S.activeTournament=v;save();render()}
 function savePrediction(){if(S.closed)return toast('Таавар хаагдсан');let p=S.predictions.find(x=>x.userId===S.currentUser&&x.eventId===S.activeTournament);if(!p){p={id:uid(),userId:S.currentUser,eventId:S.activeTournament};S.predictions.push(p);let u=me();u.totalPredictions=(u.totalPredictions||0)+1}Object.assign(p,{champion:$('#champion').value,runner:$('#runner').value,province:$('#province').value,title:$('#title').value,semi:checks('semi').slice(0,4),quarter:checks('quarter').slice(0,8),updatedAt:new Date().toISOString()});save();toast('Таавар хадгалагдлаа');tab='mine';render()}
@@ -58,6 +105,6 @@ function saveResults(){S.results={eventId:S.activeTournament,champion:$('#rChamp
 function calculateScores(){let P=S.settings.points,R=S.results;S.users.forEach(u=>{u.score=0;u.xp=0;u.correctPredictions=0});S.predictions.forEach(p=>{let sc=0,correct=0;if(p.eventId!==R.eventId)return;if(p.champion===R.champion){sc+=P.champion;correct++}if(p.runner===R.runner){sc+=P.runner;correct++}(p.semi||[]).forEach(x=>{if((R.semi||[]).includes(x)){sc+=P.semi;correct++}});(p.quarter||[]).forEach(x=>{if((R.quarter||[]).includes(x)){sc+=P.quarter;correct++}});if(p.province===R.province){sc+=P.province;correct++}if(p.title===R.title){sc+=P.title;correct++}if(p.champion===R.champion&&p.runner===R.runner&&(p.semi||[]).filter(x=>(R.semi||[]).includes(x)).length>=4)sc+=P.combo;p.calculatedScore=sc;let u=S.users.find(x=>x.id===p.userId);if(u){u.score+=sc;u.xp+=sc;u.correctPredictions=(u.correctPredictions||0)+correct;u.level=levelFromXp(u.xp);if(sc>=300 && !u.medals.includes('Мэргэн таамаглагч'))u.medals.push('Мэргэн таамаглагч')}})}
 function resetDemo(){if(confirm('Бүх demo өгөгдлийг цэвэрлэх үү?')){localStorage.removeItem(DB);S=clone(defaultState);save();render()}}
 window.BTP={setTab,login,logout,changeEvent,savePrediction,filterProvince,saveProfile,adminLogin,toggleClose,addEvent,addWrestler,saveResults,resetDemo,limitChecks};
-window.addEventListener('load',()=>{normalizeState();save();render(); if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}});
+window.addEventListener('load',()=>{initApp(); if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}});
 setInterval(()=>{if(tab==='home')render()},1000);
 })();

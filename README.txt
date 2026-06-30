@@ -1,6 +1,6 @@
-Бөх Таавар Pro v3.2 WORKING
+Бөх Таавар Pro v4.0 FIREBASE REALTIME
 
-Энэ хувилбар root хавтас дээр шууд ажиллана.
+Энэ хувилбар Firebase Realtime Database-тэй холбогдсон.
 GitHub дээр бүх файлыг үндсэн хавтас руу upload хийнэ:
 - index.html
 - app.js
@@ -11,12 +11,17 @@ GitHub дээр бүх файлыг үндсэн хавтас руу upload хи
 
 Админ PIN: 1234
 
-Засвар:
-- Олон жижиг JS файлыг нэг app.js болгосон. Замын алдаа гарахгүй.
-- Service worker cache-ийг минимал болгосон. Хуучин cache барихгүй.
-- LocalStorage version шинэ: bukhTaavarProV32
-- Нүүр, бүртгэл, таавар, минийх, чансаа, профайл, админ бүгд нэг файлд.
+Шинэчлэлт:
+- localStorage-only биш болсон.
+- Firebase Realtime Database URL ашиглаж сервер дээр state хадгална.
+- users, events, wrestlers, predictions, results бүгд Firebase дээр нэг state болж хадгалагдана.
+- Нэг хүн админ дээр үр дүн оруулахад бусад хэрэглэгч refresh/polling-оор ижил мэдээлэл харна.
+- localStorage зөвхөн тухайн төхөөрөмжийн currentUser болон backup cache-д ашиглагдана.
+
+Firebase:
+- Database URL: https://boh-taavar-pro-default-rtdb.firebaseio.com/state.json
+- Realtime Database Rules нь одоогоор test mode дээр байх ёстой.
 
 Анхаарах:
 - Энэ нь бодит мөнгөний бооцоо биш. Оноотой тааврын PWA prototype.
-- Өгөгдөл browser-ийн localStorage дээр хадгалагдана.
+- Test mode rules 30 хоногийн дараа хаагдана. V4.1 дээр аюулгүй rules + admin хамгаалалт нэмнэ.
