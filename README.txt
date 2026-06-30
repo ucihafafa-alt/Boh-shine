@@ -1,27 +1,14 @@
-Бөх Таавар Pro v5.0 FIREBASE REALTIME NODES
+Бөх Таавар Pro v5.1 ADMIN FIX
 
-GitHub root хавтас руу upload хийх 6 файл:
-- index.html
-- app.js
-- style.css
-- manifest.json
-- sw.js
-- README.txt
+Засвар:
+- Админ таб бусад хэрэглэгчдэд харагдахгүй.
+- Админ руу орохдоо сайтынхаа араас #admin нэмнэ.
+  Жишээ: https://ucihafafa-alt.github.io/Boh-shine/#admin
+- Админ PIN: 1234
+- Админ бүх хэрэглэгч, бүх таавар харна.
+- Хэрэглэгчийн оноог +10 / -10 эсвэл гараар нэмэх хасах боломжтой.
+- Хэрэглэгч устгах боломж нэмсэн.
+- Firebase Realtime Database node-ууд хэвээр: users, predictions, events, wrestlers, results, meta.
 
-Админ PIN: 1234
-
-Энэ хувилбар Firebase Realtime Database руу бодитоор дараах node-ууд үүсгэнэ:
-- users
-- predictions
-- events
-- wrestlers
-- results
-- meta
-
-Realtime Database URL:
-https://boh-taavar-pro-default-rtdb.firebaseio.com
-
-Анхаарах:
-- Одоогоор утасны OTP биш, нэр + утсаар бүртгэнэ.
-- localStorage зөвхөн тухайн төхөөрөмжийн currentUser ID хадгална.
-- Үндсэн өгөгдөл Firebase дээр хадгалагдана.
+Upload хийх файлууд:
+index.html, app.js, style.css, manifest.json, sw.js, README.txt
